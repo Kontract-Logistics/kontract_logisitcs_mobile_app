@@ -15,20 +15,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Update latest.json
         env:
           TAG_NAME: ${{ github.event.release.tag_name }}
           RELEASE_BODY: ${{ github.event.release.body }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          VERSION="${TAG_NAME#v}"
-          APK_NAME="kontract-express.apk"
-
-          APK_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/${APK_NAME}"
-
-          mkdir -p ota
-
           python3 - <<'PY'
           import json
           import os
@@ -37,6 +32,7 @@ jobs:
           version = tag.removeprefix("v")
           release_body = os.environ.get("RELEASE_BODY", "").strip()
           repository = os.environ["GITHUB_REPOSITORY"]
+
           apk_name = "kontract-express.apk"
 
           apk_url = (
@@ -51,10 +47,19 @@ jobs:
               "changelog": release_body,
           }
 
+          os.makedirs("ota", exist_ok=True)
+
           with open("ota/latest.json", "w", encoding="utf-8") as file:
               json.dump(manifest, file, indent=2, ensure_ascii=False)
               file.write("\n")
+
+          print("Generated OTA manifest:")
+          print(json.dumps(manifest, indent=2, ensure_ascii=False))
           PY
+
+      - name: Show generated manifest
+        run: |
+          cat ota/latest.json
 
       - name: Commit OTA manifest
         run: |
@@ -69,4 +74,5 @@ jobs:
           fi
 
           git commit -m "chore: update OTA manifest for ${{ github.event.release.tag_name }}"
-          git push
+
+          git push origin HEAD:main
