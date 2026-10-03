@@ -12,11 +12,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout main branch
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Ensure main branch is checked out
+        run: |
+          git checkout main
+          git pull origin main
 
       - name: Update latest.json
         env:
@@ -50,7 +55,12 @@ jobs:
           os.makedirs("ota", exist_ok=True)
 
           with open("ota/latest.json", "w", encoding="utf-8") as file:
-              json.dump(manifest, file, indent=2, ensure_ascii=False)
+              json.dump(
+                  manifest,
+                  file,
+                  indent=2,
+                  ensure_ascii=False,
+              )
               file.write("\n")
 
           print("Generated OTA manifest:")
@@ -59,6 +69,7 @@ jobs:
 
       - name: Show generated manifest
         run: |
+          echo "Contents of ota/latest.json:"
           cat ota/latest.json
 
       - name: Commit OTA manifest
