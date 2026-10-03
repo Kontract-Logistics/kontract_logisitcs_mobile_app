@@ -4,6 +4,12 @@ on:
   release:
     types: [published]
 
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/update-ota-manifest.yml
+
 permissions:
   contents: write
 
@@ -18,15 +24,28 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Ensure main branch is checked out
+      - name: Get latest release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git checkout main
-          git pull origin main
+          RELEASE=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest)
+
+          TAG_NAME=$(echo "$RELEASE" | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          RELEASE_BODY=$(echo "$RELEASE" | python3 -c "import json,sys; print(json.load(sys.stdin)['body'])")
+
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+          {
+            echo 'release_body<<EOF'
+            echo "$RELEASE_BODY"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Update latest.json
         env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
-          RELEASE_BODY: ${{ github.event.release.body }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          RELEASE_BODY: ${{ steps.release.outputs.release_body }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python3 - <<'PY'
@@ -63,16 +82,12 @@ jobs:
               )
               file.write("\n")
 
-          print("Generated OTA manifest:")
           print(json.dumps(manifest, indent=2, ensure_ascii=False))
           PY
 
-      - name: Show generated manifest
-        run: |
-          echo "Contents of ota/latest.json:"
-          cat ota/latest.json
-
-      - name: Commit OTA manifest
+      - name: Commit and push OTA manifest
+        env:
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -84,6 +99,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore: update OTA manifest for ${{ github.event.release.tag_name }}"
+          git commit -m "chore: update OTA manifest for $TAG_NAME"
 
-          git push origin HEAD:main
+          git push origin main
