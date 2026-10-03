@@ -1,6 +1,6 @@
 {
-  "version": "1.6.1",
-  "tag": "v1.6.1",
-  "apk": "https://github.com/Kontract-Logistics/kontract_logisitcs_mobile_app/releases/download/v1.6.1/kontract-express.apk",
-  "changelog": "Make the crop image optional after clicking image"
+  "version": "1.7.0",
+  "tag": "v1.7.0",
+  "apk": "https://github.com/Kontract-Logistics/kontract_logisitcs_mobile_app/releases/download/v1.7.0/kontract-express.apk",
+  "changelog": "- New OTA implementation\r\n- Add feature to assign pickup request\r\n- Redesign the navbar\r\n- Suppress warnings and logging\r\n- Redesign the pages and appbar\r\n- Add notice page\r\n- Add custom date filter in overview page"
 }
