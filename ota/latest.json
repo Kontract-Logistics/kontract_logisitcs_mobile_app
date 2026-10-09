@@ -1,6 +1,6 @@
 {
-  "version": "1.7.1",
-  "tag": "v1.7.1",
-  "apk": "https://github.com/Kontract-Logistics/kontract_logisitcs_mobile_app/releases/download/v1.7.1/kontract-express.apk",
-  "changelog": "- Fix the assign driver list showing no data"
+  "version": "1.8.0",
+  "tag": "v1.8.0",
+  "apk": "https://github.com/Kontract-Logistics/kontract_logisitcs_mobile_app/releases/download/v1.8.0/kontract-express.apk",
+  "changelog": "- Change the navbar style to android style\r\n- Change the font to match the website\r\n- Attendance feature added\r\n- Leave application feature added\r\n- Fix the HTML rendering in notices\r\n- Analysis and Reports added\r\n- Fix the keep alive state"
 }
