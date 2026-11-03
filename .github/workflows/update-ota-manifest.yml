@@ -3,102 +3,68 @@ name: Update OTA Manifest
 on:
   release:
     types: [published]
-
   push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/update-ota-manifest.yml
+    branches: [main]
+    paths: [.github/workflows/update-ota-manifest.yml]
 
 permissions:
   contents: write
 
 jobs:
   update-ota-manifest:
+    if: ${{ !github.event.release.prerelease }}
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout main branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
 
-      - name: Get latest release
-        id: release
+      - name: Fetch release
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
         run: |
-          RELEASE=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest)
+          if [ -n "$EVENT_TAG" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$EVENT_TAG" > "$RUNNER_TEMP/release.json"
+          else
+            gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/release.json"
+          fi
 
-          TAG_NAME=$(echo "$RELEASE" | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
-          RELEASE_BODY=$(echo "$RELEASE" | python3 -c "import json,sys; print(json.load(sys.stdin)['body'])")
-
-          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
-
-          {
-            echo 'release_body<<EOF'
-            echo "$RELEASE_BODY"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Update latest.json
-        env:
-          TAG_NAME: ${{ steps.release.outputs.tag_name }}
-          RELEASE_BODY: ${{ steps.release.outputs.release_body }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+      - name: Update ota/native/latest.json
+        id: manifest
         run: |
           python3 - <<'PY'
-          import json
-          import os
+          import json, os
 
-          tag = os.environ["TAG_NAME"]
-          version = tag.removeprefix("v")
-          release_body = os.environ.get("RELEASE_BODY", "").strip()
-          repository = os.environ["GITHUB_REPOSITORY"]
-
-          apk_name = "kontract-express.apk"
-
-          apk_url = (
-              f"https://github.com/{repository}/releases/download/"
-              f"{tag}/{apk_name}"
-          )
+          r = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "release.json"), encoding="utf-8"))
+          tag = r["tag_name"]
+          apks = [a["browser_download_url"] for a in r.get("assets", []) if a["name"].endswith(".apk")]
+          if len(apks) != 1:
+              raise SystemExit(f"Expected exactly one .apk asset on {tag}, found {len(apks)}")
 
           manifest = {
-              "version": version,
+              "version": tag.removeprefix("v"),
               "tag": tag,
-              "apk": apk_url,
-              "changelog": release_body,
+              "apk": apks[0],
+              "changelog": (r.get("body") or "").strip(),
           }
-
-          os.makedirs("ota", exist_ok=True)
-
-          with open("ota/latest.json", "w", encoding="utf-8") as file:
-              json.dump(
-                  manifest,
-                  file,
-                  indent=2,
-                  ensure_ascii=False,
-              )
-              file.write("\n")
-
+          os.makedirs("ota/native", exist_ok=True)
+          with open("ota/native/latest.json", "w", encoding="utf-8") as f:
+              json.dump(manifest, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"tag={tag}\n")
           print(json.dumps(manifest, indent=2, ensure_ascii=False))
           PY
 
-      - name: Commit and push OTA manifest
+      - name: Commit and push
         env:
-          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          TAG_NAME: ${{ steps.manifest.outputs.tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add ota/latest.json
-
-          if git diff --cached --quiet; then
-            echo "No changes to latest.json"
-            exit 0
-          fi
-
-          git commit -m "chore: update OTA manifest for $TAG_NAME"
-
+          git add ota/native/latest.json
+          git diff --cached --quiet && { echo "No changes"; exit 0; }
+          git commit -m "chore: update native OTA manifest for $TAG_NAME"
           git push origin main
