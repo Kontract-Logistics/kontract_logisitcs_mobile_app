@@ -1,0 +1,6 @@
+{
+  "version": "1.0.1",
+  "tag": "v1.0.1",
+  "apk": "https://github.com/Kontract-Logistics/kontract_logisitcs_mobile_app/releases/download/v1.0.1/kontract-express.apk",
+  "changelog": "- Initial native release"
+}
